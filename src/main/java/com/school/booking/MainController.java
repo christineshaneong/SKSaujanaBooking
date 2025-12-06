@@ -19,29 +19,23 @@ public class MainController {
     private List<Booking> bookingList = new ArrayList<>();
     private AtomicLong idCounter = new AtomicLong();
 
-    // Define the exact schedule structure
     private final String[] DAYS = {"Monday", "Tuesday", "Wednesday", "Thursday", "Friday"};
-    private final String[] TIMES = {
-        "08:00 - 09:00", "09:00 - 10:00", "10:00 - 11:00", 
-        "11:00 - 12:00", "12:00 - 01:00", "02:00 - 03:00"
-    };
+    // Includes 7 AM as earliest time
+    private final int[] HOURS = {7, 8, 9, 10, 11, 12, 13, 14, 15, 16};
 
     @GetMapping("/calendar")
     public String showCalendar(Model model, HttpSession session) {
         String role = (String) session.getAttribute("role");
         if (role == null) { role = "USER"; session.setAttribute("role", "USER"); }
 
-        // Date Display
         LocalDate today = LocalDate.now();
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("EEEE, dd MMMM yyyy");
 
         model.addAttribute("bookings", bookingList);
         model.addAttribute("currentUserRole", role);
         model.addAttribute("todaysDate", today.format(formatter));
-        
-        // NEW: Send definitions to HTML so we can build the grid
         model.addAttribute("days", DAYS);
-        model.addAttribute("timeSlots", TIMES);
+        model.addAttribute("hours", HOURS);
 
         return "calendar";
     }
@@ -52,21 +46,29 @@ public class MainController {
             @RequestParam int students,
             @RequestParam String purpose,
             @RequestParam String equipment,
-            @RequestParam String day,       // NEW INPUT
-            @RequestParam String timeSlot,
+            @RequestParam String day,
+            @RequestParam String startTime,
+            @RequestParam String endTime,
             @RequestParam String roomType) {
         
-        Booking newBooking = new Booking(idCounter.incrementAndGet(), className, students, purpose, equipment, day, timeSlot, roomType);
+        Booking newBooking = new Booking(idCounter.incrementAndGet(), className, students, purpose, equipment, day, startTime, endTime, roomType);
         bookingList.add(newBooking);
         
         return "redirect:/calendar";
     }
 
     @PostMapping("/update-status")
-    public String updateStatus(@RequestParam Long id, @RequestParam String status) {
+    public String updateStatus(
+            @RequestParam Long id, 
+            @RequestParam String status,
+            @RequestParam(required = false) String reason) {
+        
         for (Booking b : bookingList) {
             if (b.getId().equals(id)) {
                 b.setStatus(status);
+                if ("Rejected".equals(status) && reason != null) {
+                    b.setRejectionReason(reason);
+                }
                 break;
             }
         }
