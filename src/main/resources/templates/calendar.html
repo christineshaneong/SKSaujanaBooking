@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>SKSU Calendar</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+
+    <style>
+        .top-header { background-color: #e0e0e0; padding: 15px; border-bottom: 3px solid #732d91; display: flex; align-items: center; justify-content: space-between; }
+        .school-logo { height: 50px; margin-right: 15px; }
+        .page-title { font-weight: bold; font-size: 1.5rem; color: #333; }
+        
+        .calendar-table { width: 100%; text-align: center; border-collapse: collapse; margin-top: 20px; table-layout: fixed;}
+        .calendar-table th { background-color: #f8f9fa; padding: 10px; border: 1px solid #dee2e6; width: 16%; }
+        .calendar-table td { height: 80px; border: 1px solid #dee2e6; vertical-align: middle; padding: 5px; font-size: 0.9rem;}
+
+        /* Booking Styles in Grid */
+        .booked-slot {
+            background-color: #d1c4e9; /* Light Purple */
+            color: #4a148c;
+            border-radius: 5px;
+            padding: 5px;
+            font-weight: bold;
+            font-size: 0.8rem;
+            display: block;
+        }
+        .booked-slot.approved { background-color: #c8e6c9; color: #1b5e20; } /* Green if approved */
+        .booked-slot.rejected { background-color: #ffcdd2; color: #b71c1c; text-decoration: line-through; opacity: 0.5;} 
+
+        .status-pending { color: orange; font-weight: bold; }
+        .status-approved { color: green; font-weight: bold; }
+        .status-rejected { color: red; font-weight: bold; }
+        .btn-purple { background-color: #732d91; color: white; }
+    </style>
+</head>
+<body>
+
+<div class="top-header">
+    <div class="d-flex align-items-center">
+        <img src="/images/sksaujana.jpg" alt="Logo" class="school-logo">
+        <div>
+            <div class="page-title">Calendar System</div>
+            <div style="color: #732d91; font-weight: bold;" th:text="${todaysDate}"></div>
+        </div>
+    </div>
+    <div class="pe-3 text-end">
+        <span class="d-block small text-muted">Role: <b th:text="${currentUserRole}"></b></span>
+        <a href="/logout" class="btn btn-outline-danger btn-sm mt-1">Log Out</a>
+    </div>
+</div>
+
+<div class="container mt-4">
+
+    <div class="d-flex justify-content-between align-items-center mb-2">
+        <h4>Weekly Schedule</h4>
+        <button class="btn btn-purple" data-bs-toggle="modal" data-bs-target="#bookingModal">
+            + New Booking
+        </button>
+    </div>
+
+    <table class="calendar-table">
+        <thead>
+            <tr>
+                <th>Time</th>
+                <th th:each="day : ${days}" th:text="${day}"></th> </tr>
+        </thead>
+        <tbody>
+            <tr th:each="time : ${timeSlots}">
+                <td th:text="${time}" class="fw-bold bg-light"></td>
+                
+                <td th:each="day : ${days}">
+                    <div th:each="booking : ${bookings}" 
+                         th:if="${booking.day == day and booking.timeSlot == time}">
+                        
+                        <div class="booked-slot" 
+                             th:classappend="${booking.status == 'Approved' ? 'approved' : (booking.status == 'Rejected' ? 'rejected' : '')}">
+                            <span th:text="${booking.className}"></span><br>
+                            <small th:text="${booking.roomType}"></small>
+                        </div>
+                    </div>
+                </td>
+            </tr>
+        </tbody>
+    </table>
+
+    <div class="card mt-5 mb-4 shadow-sm">
+        <div class="card-header bg-white font-weight-bold">
+            <h5 class="m-0" style="color:#732d91;">Admin Status List</h5>
+        </div>
+        <div class="card-body">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>Details</th>
+                        <th>Day & Time</th>
+                        <th>Status</th>
+                        <th th:if="${currentUserRole == 'ADMIN'}">Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr th:each="booking : ${bookings}">
+                        <td><b th:text="${booking.className}"></b><br><small th:text="${booking.purpose}"></small></td>
+                        <td><span th:text="${booking.day}"></span><br><small th:text="${booking.timeSlot}"></small></td>
+                        <td>
+                            <span th:if="${booking.status == 'Pending'}" class="status-pending">Pending</span>
+                            <span th:if="${booking.status == 'Approved'}" class="status-approved">Approved</span>
+                            <span th:if="${booking.status == 'Rejected'}" class="status-rejected">Rejected</span>
+                        </td>
+                        <td th:if="${currentUserRole == 'ADMIN'}">
+                            <form th:action="@{/update-status}" method="post">
+                                <input type="hidden" name="id" th:value="${booking.id}">
+                                <button name="status" value="Approved" class="btn btn-sm btn-outline-success"><i class="fas fa-check"></i></button>
+                                <button name="status" value="Rejected" class="btn btn-sm btn-outline-danger"><i class="fas fa-times"></i></button>
+                            </form>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="bookingModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Book a Room</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form th:action="@{/book-room}" method="post">
+                    
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Day</label>
+                            <select name="day" class="form-select">
+                                <option th:each="d : ${days}" th:value="${d}" th:text="${d}"></option>
+                            </select>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Time</label>
+                            <select name="timeSlot" class="form-select">
+                                <option th:each="t : ${timeSlots}" th:value="${t}" th:text="${t}"></option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Room</label>
+                        <select name="roomType" class="form-select">
+                            <option value="Makmal Komputer">Makmal Komputer</option>
+                            <option value="Surau">Surau</option>
+                            <option value="Dewan">Dewan</option>
+                        </select>
+                    </div>
+
+                    <div class="mb-3"><input type="text" name="className" class="form-control" placeholder="Class Name (e.g., 1A)" required></div>
+                    <div class="mb-3"><input type="number" name="students" class="form-control" placeholder="No. of Students" required></div>
+                    <div class="mb-3"><input type="text" name="purpose" class="form-control" placeholder="Purpose" required></div>
+                    <div class="mb-3"><input type="text" name="equipment" class="form-control" placeholder="Equipment"></div>
+                    
+                    <button type="submit" class="btn btn-purple w-100">Submit Request</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
